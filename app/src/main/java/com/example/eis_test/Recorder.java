@@ -2,6 +2,8 @@ package com.example.eis_test;
 
 import android.annotation.TargetApi;
 import android.hardware.Camera;
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
 import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
 import android.os.AsyncTask;
@@ -16,6 +18,9 @@ import android.widget.Button;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 public class Recorder extends AppCompatActivity {
@@ -25,6 +30,14 @@ public class Recorder extends AppCompatActivity {
 
     private boolean isRecording = false; // Is video being recoded?
     private Button btnRecord;            // Button that triggers recording
+
+    private SensorManager mSensorManager;
+    private Sensor mGyro;
+    private PrintStream mGyroFile;
+    private long mStartTime = -1;
+
+    private static String TAG = "GyroRecorder";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -88,31 +101,31 @@ public class Recorder extends AppCompatActivity {
         releaseMediaRecorder();
         releaseCamera();
     }
-}
 
-class MediaPrepareTask extends AsyncTask<Void, Void, Boolean> {
-    //automatically creates a new thread and runs doInBackground in that thread
-    @Override
-    protected Boolean doInBackground(Void... voids) {
-        //identifying supported image sizes from the camera, finding the suitable height,
-        // setting the bitrate of the video and specifying the destination video file.
-        if(prepareVideoRecorder()) {
-            mMediaRecorder.start();
-            isRecording = true;
-        } else {
-            releaseMediaRecorder();
-            return false;
-        }
-        return true;
-    }
-
-    @Override
-    protected void onPostExecute(Boolean result) {
-        if(!result) {
-            Recorder.this.finish();
+    class MediaPrepareTask extends AsyncTask<Void, Void, Boolean> {
+        //automatically creates a new thread and runs doInBackground in that thread
+        @Override
+        protected Boolean doInBackground(Void... voids) {
+            //identifying supported image sizes from the camera, finding the suitable height,
+            // setting the bitrate of the video and specifying the destination video file.
+            if(prepareVideoRecorder()) {
+                mMediaRecorder.start();
+                isRecording = true;
+            } else {
+                releaseMediaRecorder();
+                return false;
+            }
+            return true;
         }
 
-        btnRecord.setText("Stop");
+        @Override
+        protected void onPostExecute(Boolean result) {
+            if(!result) {
+                Recorder.this.finish();
+            }
+
+            btnRecord.setText("Stop");
+        }
     }
 
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
@@ -229,3 +242,4 @@ class MediaPrepareTask extends AsyncTask<Void, Void, Boolean> {
         return mediaFile;
     }
 }
+
