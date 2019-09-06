@@ -1,8 +1,11 @@
 package com.example.eis_test;
 
 import android.annotation.TargetApi;
+import android.content.Context;
 import android.hardware.Camera;
 import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
@@ -31,6 +34,7 @@ public class Recorder extends AppCompatActivity {
     private boolean isRecording = false; // Is video being recoded?
     private Button btnRecord;            // Button that triggers recording
 
+    //The SensorManager object manages all sensors on the hardware
     private SensorManager mSensorManager;
     private Sensor mGyro;
     private PrintStream mGyroFile;
@@ -55,6 +59,11 @@ public class Recorder extends AppCompatActivity {
                 onCaptureClick(view);
             }
         });
+
+        mSensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
+        mGyro = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        //fetching the gyroscope sensor and registering that this class should receive events (registerListener)
+        mSensorManager.registerListener((SensorEventListener) this, mGyro, SensorManager.SENSOR_DELAY_FASTEST);
     }
 
     //这是按键按下的操作
@@ -135,13 +144,16 @@ public class Recorder extends AppCompatActivity {
 
         Camera.Parameters parameters = mCamera.getParameters();
         List<Camera.Size> mSupportedPreviewSizes = parameters.getSupportedPreviewSizes();
+
         // find the optimal image size for the camera
         Camera.Size optimalSize = getOptimalPreviewSize(mSupportedPreviewSizes,mPreview.getWidth(),mPreview.getHeight());
         parameters.setPreviewSize(optimalSize.width,optimalSize.height);
+
         //With the optimal size in hand, we can now set up the camera recorder settings
         CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
         profile.videoFrameWidth = optimalSize.width;
         profile.videoFrameHeight = optimalSize.height;
+
         //contact the camera hardware and set up these parameters
         mCamera.setParameters(parameters);
         try {
@@ -165,6 +177,15 @@ public class Recorder extends AppCompatActivity {
 
         mMediaRecorder.setVideoEncoder(profile.videoCodec);
         mMediaRecorder.setOutputFile(getOutputMediaFile().toString());
+        //initialize the PrintStream
+        try {
+            mGyroFile = new PrintStream(getOutputGyroFile());
+            mGyroFile.append("gyro\n");
+        } catch(IOException e) {
+            Log.d(TAG, "Unable to create acquisition file");
+            return false;
+        }
+
         try {
             mMediaRecorder.prepare();
         } catch (IllegalStateException e) {
@@ -240,6 +261,45 @@ public class Recorder extends AppCompatActivity {
         mediaFile = new File(mediaStorageDir.getPath() + File.separator + "VID_" + timeStamp + ".mp4");
 
         return mediaFile;
+    }
+
+    //returns a .csv file of gyro data
+    private File getOutputGyroFile() {
+        if(!Environment.getExternalStorageState().equalsIgnoreCase(Environment.MEDIA_MOUNTED)) {
+            return null;
+        }
+
+        File gyroStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Recorder");
+
+        if(!gyroStorageDir.exists()) {
+            if(!gyroStorageDir.mkdirs()) {
+                Log.d("Recorder", "Failed to create directory");
+                return null;
+            }
+        }
+
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        File gyroFile;
+        gyroFile = new File(gyroStorageDir.getPath() + File.separator + "VID_" + timeStamp + "gyro.csv");
+
+        return gyroFile;
+    }
+
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // Empty on purpose
+        // Required because we implement SensorEventListener
+    }
+
+    public void onSensorChanged(SensorEvent sensorEvent) {
+        if(isRecording) {
+            if(mStartTime == -1) {
+                mStartTime = sensorEvent.timestamp;
+            }
+            mGyroFile.append(sensorEvent.values[0] + "," +
+                    sensorEvent.values[1] + "," +
+                    sensorEvent.values[2] + "," +
+                    (sensorEvent.timestamp-mStartTime) + "\n");
+        }
     }
 }
 
