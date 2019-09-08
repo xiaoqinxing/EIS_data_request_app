@@ -63,7 +63,7 @@ public class Recorder extends AppCompatActivity {
         mSensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
         mGyro = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         //fetching the gyroscope sensor and registering that this class should receive events (registerListener)
-        mSensorManager.registerListener((SensorEventListener) this, mGyro, SensorManager.SENSOR_DELAY_FASTEST);
+        mSensorManager.registerListener(gyro_listener, mGyro, SensorManager.SENSOR_DELAY_FASTEST);
     }
 
     //这是按键按下的操作
@@ -85,6 +85,27 @@ public class Recorder extends AppCompatActivity {
             new MediaPrepareTask().execute(null, null, null);
         }
     }
+
+    private SensorEventListener gyro_listener = new SensorEventListener(){
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+            // Empty on purpose
+            // Required because we implement SensorEventListener
+        }
+
+        @Override
+        public void onSensorChanged(SensorEvent sensorEvent) {
+            if(isRecording) {
+                if(mStartTime == -1) {
+                    mStartTime = sensorEvent.timestamp;
+                }
+                mGyroFile.append(sensorEvent.values[0] + "," +
+                        sensorEvent.values[1] + "," +
+                        sensorEvent.values[2] + "," +
+                        (sensorEvent.timestamp-mStartTime) + "\n");
+            }
+        }
+    };
 
     private void releaseMediaRecorder() {
         if(mMediaRecorder != null) {
@@ -265,14 +286,14 @@ public class Recorder extends AppCompatActivity {
 
     //returns a .csv file of gyro data
     private File getOutputGyroFile() {
-        if(!Environment.getExternalStorageState().equalsIgnoreCase(Environment.MEDIA_MOUNTED)) {
+        if (!Environment.getExternalStorageState().equalsIgnoreCase(Environment.MEDIA_MOUNTED)) {
             return null;
         }
 
         File gyroStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Recorder");
 
-        if(!gyroStorageDir.exists()) {
-            if(!gyroStorageDir.mkdirs()) {
+        if (!gyroStorageDir.exists()) {
+            if (!gyroStorageDir.mkdirs()) {
                 Log.d("Recorder", "Failed to create directory");
                 return null;
             }
@@ -283,23 +304,6 @@ public class Recorder extends AppCompatActivity {
         gyroFile = new File(gyroStorageDir.getPath() + File.separator + "VID_" + timeStamp + "gyro.csv");
 
         return gyroFile;
-    }
-
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        // Empty on purpose
-        // Required because we implement SensorEventListener
-    }
-
-    public void onSensorChanged(SensorEvent sensorEvent) {
-        if(isRecording) {
-            if(mStartTime == -1) {
-                mStartTime = sensorEvent.timestamp;
-            }
-            mGyroFile.append(sensorEvent.values[0] + "," +
-                    sensorEvent.values[1] + "," +
-                    sensorEvent.values[2] + "," +
-                    (sensorEvent.timestamp-mStartTime) + "\n");
-        }
     }
 }
 
