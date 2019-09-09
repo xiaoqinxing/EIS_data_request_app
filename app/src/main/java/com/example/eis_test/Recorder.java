@@ -1,5 +1,6 @@
 package com.example.eis_test;
 
+import android.Manifest;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.hardware.Camera;
@@ -13,11 +14,13 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,12 +45,20 @@ public class Recorder extends AppCompatActivity {
 
     private static String TAG = "GyroRecorder";
 
+    String[] permissions = {
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.CAMERA
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         //这应该是显示一个页面的
         setContentView(R.layout.activity_main);
+
+        PermissionsUtils.showSystemSetting = true;//是否支持显示系统设置权限设置窗口跳转
+        ////这里的this不是上下文，是Activity对象！
+        PermissionsUtils.getInstance().chekPermissions(this, permissions, permissionsResult);
 
         //id is elements's id to find which elements you choose
         mPreview = (TextureView)findViewById(R.id.textureView1);
@@ -64,6 +75,29 @@ public class Recorder extends AppCompatActivity {
         mGyro = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         //fetching the gyroscope sensor and registering that this class should receive events (registerListener)
         mSensorManager.registerListener(gyro_listener, mGyro, SensorManager.SENSOR_DELAY_FASTEST);
+
+
+    }
+
+    //创建监听权限的接口对象
+    PermissionsUtils.IPermissionsResult permissionsResult = new PermissionsUtils.IPermissionsResult() {
+        @Override
+        public void passPermissons() {
+            Toast.makeText(getApplicationContext(), "权限通过，可以做其他事情!", Toast.LENGTH_SHORT).show();
+        }
+
+        @Override
+        public void forbitPermissons() {
+//            finish();
+            Toast.makeText(getApplicationContext(), "权限不通过!", Toast.LENGTH_SHORT).show();
+        }
+    };
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        //就多一个参数this
+        PermissionsUtils.getInstance().onRequestPermissionsResult(this, requestCode, permissions, grantResults);
     }
 
     //这是按键按下的操作
@@ -161,8 +195,8 @@ public class Recorder extends AppCompatActivity {
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     private boolean prepareVideoRecorder() {
         // because mCamera is privated object, so other class can't used
-        mCamera = Camera.open();
-
+        //mCamera = Camera.open();
+        mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
         Camera.Parameters parameters = mCamera.getParameters();
         List<Camera.Size> mSupportedPreviewSizes = parameters.getSupportedPreviewSizes();
 
