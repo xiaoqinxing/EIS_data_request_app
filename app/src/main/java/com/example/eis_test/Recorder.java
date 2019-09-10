@@ -76,14 +76,13 @@ public class Recorder extends AppCompatActivity {
         //fetching the gyroscope sensor and registering that this class should receive events (registerListener)
         mSensorManager.registerListener(gyro_listener, mGyro, SensorManager.SENSOR_DELAY_FASTEST);
 
-
     }
 
     //创建监听权限的接口对象
     PermissionsUtils.IPermissionsResult permissionsResult = new PermissionsUtils.IPermissionsResult() {
         @Override
         public void passPermissons() {
-            Toast.makeText(getApplicationContext(), "权限通过，可以做其他事情!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getApplicationContext(), "权限通过~", Toast.LENGTH_SHORT).show();
         }
 
         @Override
@@ -100,7 +99,7 @@ public class Recorder extends AppCompatActivity {
         PermissionsUtils.getInstance().onRequestPermissionsResult(this, requestCode, permissions, grantResults);
     }
 
-    //这是按键按下的操作
+    //按键按下的操作
     public void onCaptureClick(View view) {
         if (isRecording) {
             // Already recording? Release camera lock for others
@@ -170,6 +169,8 @@ public class Recorder extends AppCompatActivity {
         //automatically creates a new thread and runs doInBackground in that thread
         @Override
         protected Boolean doInBackground(Void... voids) {
+            //initCamera();
+            
             //identifying supported image sizes from the camera, finding the suitable height,
             // setting the bitrate of the video and specifying the destination video file.
             if(prepareVideoRecorder()) {
@@ -195,8 +196,12 @@ public class Recorder extends AppCompatActivity {
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     private boolean prepareVideoRecorder() {
         // because mCamera is privated object, so other class can't used
-        //mCamera = Camera.open();
-        mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
+        mCamera = Camera.open();
+        if (mCamera == null) {
+            Toast.makeText(this, "没有可用相机", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
         Camera.Parameters parameters = mCamera.getParameters();
         List<Camera.Size> mSupportedPreviewSizes = parameters.getSupportedPreviewSizes();
 
@@ -211,28 +216,33 @@ public class Recorder extends AppCompatActivity {
 
         //contact the camera hardware and set up these parameters
         mCamera.setParameters(parameters);
+        mCamera.startPreview();
+
         try {
             mCamera.setPreviewTexture(mPreview.getSurfaceTexture());
         } catch(IOException e) {
             Log.e(TAG,"Surface texture is unavailable or unsuitable" + e.getMessage());
             return false;
         }
+        //camera unlock need before new a MediaRecorder object
+        mCamera.unlock();
         //set up the media recorder
         mMediaRecorder = new MediaRecorder();
-        mCamera.unlock();
+
         mMediaRecorder.setCamera(mCamera);
 
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
 
         mMediaRecorder.setOutputFormat(profile.fileFormat);
-        mMediaRecorder.setVideoFrameRate(profile.videoFrameRate);
-        mMediaRecorder.setVideoSize(profile.videoFrameWidth,profile.videoFrameHeight);
-        mMediaRecorder.setVideoEncodingBitRate(
-                profile.videoBitRate);
+        //maybe hardware is not supported
+        //mMediaRecorder.setVideoFrameRate(profile.videoFrameRate);
+        //mMediaRecorder.setVideoSize(profile.videoFrameWidth,profile.videoFrameHeight);
+        mMediaRecorder.setVideoEncodingBitRate(profile.videoBitRate);
 
         mMediaRecorder.setVideoEncoder(profile.videoCodec);
         mMediaRecorder.setOutputFile(getOutputMediaFile().toString());
         //initialize the PrintStream
+
         try {
             mGyroFile = new PrintStream(getOutputGyroFile());
             mGyroFile.append("gyro\n");
