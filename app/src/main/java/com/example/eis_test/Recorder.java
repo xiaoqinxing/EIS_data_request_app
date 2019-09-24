@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -42,16 +43,20 @@ public class Recorder extends AppCompatActivity {
     private Sensor mGyro;
     private PrintStream mGyroFile;
     private long mStartTime = -1;
+    private List<Sensor> sensorList;
 
     private static String TAG = "GyroRecorder";
 
+    //Dynamic application permission for android 6.0+
     String[] permissions = {
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.CAMERA
     };
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d("app","hello world");
         super.onCreate(savedInstanceState);
         //这应该是显示一个页面的
         setContentView(R.layout.activity_main);
@@ -72,6 +77,16 @@ public class Recorder extends AppCompatActivity {
         });
 
         mSensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
+
+        //print all sensor's name
+        List<String> sensorNameList = new ArrayList<String>();
+        sensorList = mSensorManager.getSensorList(Sensor.TYPE_ALL);
+        for(Sensor sensor : sensorList) {
+            sensorNameList.add(sensor.getName()+"\r\n");
+        }
+        Log.d("sensor",sensorNameList.toString());
+
+        //register sensor listener for gyro
         mGyro = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         //fetching the gyroscope sensor and registering that this class should receive events (registerListener)
         mSensorManager.registerListener(gyro_listener, mGyro, SensorManager.SENSOR_DELAY_FASTEST);
@@ -211,8 +226,6 @@ public class Recorder extends AppCompatActivity {
 
         //With the optimal size in hand, we can now set up the camera recorder settings
         CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
-        profile.videoFrameWidth = optimalSize.width;
-        profile.videoFrameHeight = optimalSize.height;
 
         //contact the camera hardware and set up these parameters
         mCamera.setParameters(parameters);
@@ -234,15 +247,23 @@ public class Recorder extends AppCompatActivity {
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
 
         mMediaRecorder.setOutputFormat(profile.fileFormat);
-        //maybe hardware is not supported
-        //mMediaRecorder.setVideoFrameRate(profile.videoFrameRate);
-        //mMediaRecorder.setVideoSize(profile.videoFrameWidth,profile.videoFrameHeight);
+
+        //maybe video sizes are different from preview stream, so get max supported video sizes
+        List<Camera.Size> supportedVideoSizes = parameters.getSupportedVideoSizes();
+        for(int i=0;i<supportedVideoSizes.size();i++){
+            Log.d("init", "supportedVideoSize:"+supportedVideoSizes.get(i).height+
+                    "x"+supportedVideoSizes.get(i).width);
+        }
+        profile.videoFrameWidth = supportedVideoSizes.get(0).width;
+        profile.videoFrameHeight = supportedVideoSizes.get(0).height;
+        mMediaRecorder.setVideoSize(profile.videoFrameWidth,profile.videoFrameHeight);
+
         mMediaRecorder.setVideoEncodingBitRate(profile.videoBitRate);
 
         mMediaRecorder.setVideoEncoder(profile.videoCodec);
         mMediaRecorder.setOutputFile(getOutputMediaFile().toString());
-        //initialize the PrintStream
 
+        //initialize the PrintStream
         try {
             mGyroFile = new PrintStream(getOutputGyroFile());
             mGyroFile.append("gyro\n");
@@ -264,7 +285,6 @@ public class Recorder extends AppCompatActivity {
         }
         return true;
     }
-
     private Camera.Size getOptimalPreviewSize(List<Camera.Size> sizes, int w, int h) {
         final double ASPECT_TOLERANCE = 0.1;
         double targetRatio = (double)w / h;
@@ -324,7 +344,7 @@ public class Recorder extends AppCompatActivity {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         File mediaFile;
         mediaFile = new File(mediaStorageDir.getPath() + File.separator + "VID_" + timeStamp + ".mp4");
-
+        Log.d("Recorder", "video path:"+ mediaStorageDir.getPath() + File.separator + "VID_" + timeStamp + ".mp4");
         return mediaFile;
     }
 
@@ -346,7 +366,7 @@ public class Recorder extends AppCompatActivity {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         File gyroFile;
         gyroFile = new File(gyroStorageDir.getPath() + File.separator + "VID_" + timeStamp + "gyro.csv");
-
+        Log.d("Recorder", "gyro path:"+  gyroStorageDir.getPath() + File.separator + "VID_" + timeStamp + "gyro.csv");
         return gyroFile;
     }
 }
